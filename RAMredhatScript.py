@@ -1,40 +1,42 @@
 #!/usr/bin/env python3
 
 import psutil
-import subprocess
+import notify2
 import time
+import os
 
-# Threshold for RAM usage alert (in percentage)
-RAM_THRESHOLD = 80
+# Configuration
+THRESHOLD_PERCENT = 80  # Alert if RAM usage exceeds 80%
+LOG_FILE = "/var/log/ram_usage_alerts.log"
 
-def get_ram_usage():
-    """Get current RAM usage percentage"""
+def log_message(message):
+    """Log the alert to a file."""
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{timestamp} - {message}\n")
+
+def check_ram_usage():
+    """Check RAM usage and trigger alert if above threshold."""
+    # Get RAM usage stats
     memory = psutil.virtual_memory()
-    return memory.percent
-
-def show_alert(usage):
-    """Display popup alert using zenity"""
-    message = f"Warning: RAM Usage at {usage:.1f}%\nThreshold exceeded ({RAM_THRESHOLD}%)"
-    try:
-        subprocess.run([
-            'zenity',
-            '--warning',
-            '--title=RAM Usage Alert',
-            '--text=' + message,
-            '--width=300',
-            '--height=100'
-        ], check=True)
-    except subprocess.CalledProcessError:
-        # If zenity fails, print to console as fallback
-        print(message)
-
-def main():
-    # Get current RAM usage
-    ram_usage = get_ram_usage()
+    usage_percent = memory.percent
     
-    # Check if usage exceeds threshold
-    if ram_usage >= RAM_THRESHOLD:
-        show_alert(ram_usage)
+    if usage_percent >= THRESHOLD_PERCENT:
+        # Initialize notification system
+        notify2.init("RAM Monitor")
+        
+        # Create and show popup notification
+        message = f"High RAM Usage Detected!\nCurrent Usage: {usage_percent}%"
+        notification = notify2.Notification("RAM Usage Alert", message, "dialog-warning")
+        notification.set_urgency(notify2.URGENCY_CRITICAL)
+        notification.show()
+        
+        # Log the event
+        log_message(message)
+        
+        # Small delay to prevent multiple rapid notifications (if running manually)
+        time.sleep(5)
 
 if __name__ == "__main__":
-    main()
+    # Ensure log file directory exists and is writable
+    log_dir = os.path.dirname(LOG
